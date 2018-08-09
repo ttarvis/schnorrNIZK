@@ -8,11 +8,18 @@ import(
 	"math/big"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"fmt"
 )
 
-type KeyPairs struct{
-	g,p,q *big.Int
+// it makes sense to just implement constant time comparison locally
+
+// finite field signature
+// names use capital for export
+// but really they are V, A, c, r
+// todo: check if there is any reason any of these need to be exported
+type SchnorrSigFF struct {
+	V, A, C, R *big.Int
 }
 
 // for finite field, hashes returns c = H(g || V || A || etc)
@@ -44,15 +51,15 @@ func hashBuffer(buf []byte) []byte {
 // it proves knowledge of private key 'a' where A = g ^ a
 // A is the public exponent
 // g is a generator of G
-func SignFF(p, q, g, A, a *big.Int) error {
+func SignFF(p, q, g, A, a *big.Int) (*SchnorrSigFF, error) {
 	// V is g ^ v
 	// c is a bigInt and c = H(g || V || A || etc) after setting bytes
 	// r = v - a*c mod q
-	var V, c, r *big.Int
+	var V, c, r, ac *big.Int
 	// v is random number in [0, q)
 	v, err := rand.Int(rand.Reader, q) 
 	if err != nil {
-		return fmt.Errorf("in SignFF, %v\n", err);
+		return nil, fmt.Errorf("in SignFF, %v\n", err);
 	}
 
 	// V = g^v mod p
@@ -64,28 +71,69 @@ func SignFF(p, q, g, A, a *big.Int) error {
 	// it has been redefined in the non-interactive version
 	// c = H(g || V || A || UserID || OtherInfo)
 	// https://tools.ietf.org/html/rfc8235#section-2.3
+	// todo: change this out
 	UserID := "test"
 	c = SchnorrHash(g, V, A, UserID)
 
 	// r = v-a*c mod q
 	r = big.NewInt(0)
-	// a*c mod q
-	r.Mul(a, c)
-	r.Mod(r, q)
 
-	// v - (a*c mod q) mod q
-	r.Sub(v, r)
+	// a*c mod q
+	ac = big.NewInt(0)
+	ac.Mul(a, c)
+	ac.Mod(ac, q)
+
+	// v - (a*c) mod q
+	r.Sub(v, ac)
 	r.Mod(r, q)
 
 	// must send A, g, V, c, r		
 	// hopefully the public key A, g is sent already
 	// verifier must verify that 1) A is a valid public key
 	// and that 2) V = g^r * A^c
-	return nil;
+
+	SchnorrSig := new(SchnorrSigFF);
+	SchnorrSig.V = V // g^v we send
+	SchnorrSig.A = A // A is public key
+	SchnorrSig.C = c // c is hash challenge
+	SchnorrSig.R = r // r = v-a*c mod q we send
+
+	return SchnorrSig, nil;
 }
 
-GenerateKeyPairs() {
+// verifies a Schnorr Signature over a finite field
+// need A, g, V, c, r, p
+// check that V = g^r * A^c mod p
+func SchnorrVerifyFF(V, g, r, A, p *big.Int) bool {
+	var c, Ac *big.Int
+	// todo verify that A is within [1, p) and
+	// A^q = 1 mod p
 
+	// A^c mod p
+	UserID := "test"
+	c = SchnorrHash(g, V, A, UserID);
+	Ac = big.NewInt(0)
+	Ac.Exp(A, c, p)
+
+
+	// g^r mod p
+	gr := big.NewInt(0)
+	gr.Exp(g, r, p)
+
+	// g^r * A^c mod p
+	V1 := big.NewInt(0)
+	V1.Mul(gr, Ac)
+	V1.Mod(V1, p);
+	// computed V1 = g^r * A^c mod p
+
+	// replace with own methods
+	isVerified := subtle.ConstantTimeCompare(V.Bytes(), V1.Bytes())
+
+	if isVerified == 1 {
+		return true
+	} else {	
+		return false
+	}
 }
 
 func main() {
