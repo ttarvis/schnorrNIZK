@@ -16,3 +16,7 @@
 # actual binaries
 schnorrNIZK
 main
+
+# junk
+.DS_Store
+*.swp
