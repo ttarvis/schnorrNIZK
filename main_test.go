@@ -65,7 +65,7 @@ func TestSchnorrVerifyFF(t *testing.T) {
 		t.Errorf("Failure: %v\n", err);
 	}
 
-	isVerified = SchnorrVerifyFF(sig.V, privKey.G, sig.R, sig.A, privKey.P);
+	isVerified = SchnorrVerifyFF(sig.V, privKey.G, sig.R, sig.A, privKey.P, privKey.Q);
 
 	// this one should be legit
 	if !isVerified {

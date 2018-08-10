@@ -121,8 +121,8 @@ func SignFF(p, q, g, A, a *big.Int) (*SchnorrSigFF, error) {
 // verifies a Schnorr Signature over a finite field
 // need A, g, V, c, r, p
 // check that V = g^r * A^c mod p
-func SchnorrVerifyFF(V, g, r, A, p *big.Int) bool {
-	var c, Ac *big.Int
+func SchnorrVerifyFF(V, g, r, A, p, q *big.Int) bool {
+	var c, Ac, Aq *big.Int
 	// todo: should this return (bool, error)
 	// todo verify that A is within [1, p) and
 	// A^q = 1 mod p
@@ -137,6 +137,20 @@ func SchnorrVerifyFF(V, g, r, A, p *big.Int) bool {
 		return false // degnerate case
 	}
 
+	// A is within [1, p-1]
+	// A greater than or equal to p
+	if(A.Cmp(p) >= 0) {
+		return false // degenerate case
+	}
+	
+	// A^q == 1 mod p
+	Aq = big.NewInt(0)
+	Aq.Exp(A, q, p)
+	// check that Aq == 1; Aq.Cmp returns 0 if they equal
+	if(Aq.Cmp(big.NewInt(1)) != 0) {
+		return false // degenerate case
+	}
+	
 	// A^c mod p
 	UserID := "test"
 	c = SchnorrHash(g, V, A, UserID);
