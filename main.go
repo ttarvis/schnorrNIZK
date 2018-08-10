@@ -123,8 +123,19 @@ func SignFF(p, q, g, A, a *big.Int) (*SchnorrSigFF, error) {
 // check that V = g^r * A^c mod p
 func SchnorrVerifyFF(V, g, r, A, p *big.Int) bool {
 	var c, Ac *big.Int
+	// todo: should this return (bool, error)
 	// todo verify that A is within [1, p) and
 	// A^q = 1 mod p
+
+	// sanity check that a is not 0; g^0 = A is a degenerate case
+	if(A.Cmp(big.NewInt(1)) <= 0) {
+		return false // degenerate case
+	}
+
+	// make sure g is actually in the p-group
+	if(g.Cmp(p) >= 0) {
+		return false // degnerate case
+	}
 
 	// A^c mod p
 	UserID := "test"
